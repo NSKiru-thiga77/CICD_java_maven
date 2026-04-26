@@ -1,9 +1,10 @@
 pipeline {
 
     agent any
-    
+
     environment {
         DOCKER_IMAGE = "nsk7docker/demo-app"
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -14,87 +15,64 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build & Test') {
             steps {
-                dir('Java_maven_CICD'){
-                sh 'mvn clean compile'
-                }   
-            }
-        }
-
-        stage('Test') {
-            steps {
-                dir('Java_maven_CICD'){
-                sh 'mvn test'
+                dir('Java_maven_CICD') {
+                    sh 'mvn clean package'
                 }
             }
         }
 
-        stage('Package') {
-            steps {
-                dir('Java_maven_CICD'){
-                sh 'mvn package'
-                }
-            }
-        }
-        
         stage('Archive Artifacts') {
             steps {
-                dir('Java_maven_CICD'){
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                dir('Java_maven_CICD') {
+                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
                 }
             }
         }
-
 
         stage('Build Docker Image') {
             steps {
-                dir('Java_maven_CICD'){
-                sh 'docker build -t $DOCKER_IMAGE:tag123 .'
+                dir('Java_maven_CICD') {
+                    sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
                 }
             }
         }
 
         stage('Login to DockerHub') {
             steps {
-                dir('Java_maven_CICD'){
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
                     sh 'echo $PASS | docker login -u $USER --password-stdin'
                 }
-                }
             }
-        } 
+        }
 
         stage('Push Docker Image') {
             steps {
-                dir('Java_maven_CICD'){
-                sh 'docker push $DOCKER_IMAGE:tag123'
-                }
+                sh 'docker push $DOCKER_IMAGE:$DOCKER_TAG'
             }
         }
     }
 
     post {
-
         success {
-            emailext (
+            emailext(
                 subject: "SUCCESS: ${env.JOB_NAME}",
                 body: "Build ${env.BUILD_NUMBER} succeeded.\n${env.BUILD_URL}",
                 to: "kiruthiga.nan@gmail.com"
             )
-
- 
         }
 
         failure {
-            emailext (
+            emailext(
                 subject: "FAILURE: ${env.JOB_NAME}",
                 body: "Build ${env.BUILD_NUMBER} failed.\n${env.BUILD_URL}",
                 to: "kiruthiga.nan@gmail.com"
             )
-
-
         }
-        
     }
 }
