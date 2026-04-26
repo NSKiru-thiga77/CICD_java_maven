@@ -15,7 +15,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git 'https://github.com/NSKiru-thiga77/CICD_java_maven.git'
+                git branch: 'main', url: 'https://github.com/NSKiru-thiga77/CICD_java_maven.git'
             }
         }
 
