@@ -1,0 +1,91 @@
+pipeline {
+
+    agent {
+        docker {
+            image 'maven:3.9.9-eclipse-temurin-21'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v ~/.m2:/root/.m2'
+        }
+    }
+
+    environment {
+        DOCKER_IMAGE = "nsk7docker/cicd-app"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/NSKiru-thiga77/Java_maven_CICD.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+        
+        stage('Archive Artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE:tag123'
+            }
+        }
+
+        stage('Login to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh 'echo $PASS | docker login -u $USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh 'docker push $DOCKER_IMAGE:tag123'
+            }
+        }
+    }
+
+    post {
+
+        success {
+            emailext (
+                subject: "SUCCESS: ${env.JOB_NAME}",
+                body: "Build ${env.BUILD_NUMBER} succeeded.\n${env.BUILD_URL}",
+                to: "kiruthiga.nan@gmail.com"
+            )
+
+ 
+        }
+
+        failure {
+            emailext (
+                subject: "FAILURE: ${env.JOB_NAME}",
+                body: "Build ${env.BUILD_NUMBER} failed.\n${env.BUILD_URL}",
+                to: "kiruthiga.nan@gmail.com"
+            )
+
+
+        }
+        
+    }
+}
